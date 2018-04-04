@@ -5,21 +5,31 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
+import android.net.Uri;
+import android.os.Vibrator;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import java.util.Date;
+
 /**
  * Sensor activity
  */
-public class MainActivity extends AppCompatActivity  implements SensorEventListener {
+public class MainActivity extends AppCompatActivity implements SensorEventListener {
     private ImageView blackSquare;
     private ImageView ball;
 
     private int horizontalBorder;
     private int verticalBorder;
+
+    private static long prevHapticTime;
+    private Vibrator haptic;
+    private Ringtone audio;
 
     /**
      * Function ran when the activity is created, some elements likely not initialized
@@ -44,9 +54,13 @@ public class MainActivity extends AppCompatActivity  implements SensorEventListe
         SensorManager sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         Sensor sensor;
         if (sensorManager != null) {
-            sensor = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
+            sensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
             sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME);
         }
+
+        this.haptic = (Vibrator) getBaseContext().getSystemService(Context.VIBRATOR_SERVICE);
+        Uri notification = RingtoneManager.getActualDefaultRingtoneUri(getBaseContext(), RingtoneManager.TYPE_NOTIFICATION);
+        this.audio = RingtoneManager.getRingtone(getBaseContext(), notification);
 
         Toast toast = Toast.makeText(getBaseContext(), "Welcome to my ball game", Toast.LENGTH_LONG);
         toast.show();
@@ -74,21 +88,25 @@ public class MainActivity extends AppCompatActivity  implements SensorEventListe
         // Checks if left side is hit
         if (leftCoordinate < 0.0F) {
             ball.setX(horizontalBorder);
+            runCollisionFeedback();
         }
 
         // Checks if right side is hit
         if (rightCoordinate > blackSquare.getWidth()) {
             ball.setX(blackSquare.getWidth() - horizontalBorder - radiusOfBall);
+            runCollisionFeedback();
         }
 
         // Checks if top is hit
         if (topCoordinate < 0.0F) {
             ball.setY(verticalBorder);
+            runCollisionFeedback();
         }
 
         // Checks if bottom is hit
         if (bottomCoordinate > blackSquare.getHeight()) {
             ball.setY(blackSquare.getHeight() - verticalBorder - radiusOfBall);
+            runCollisionFeedback();
         }
 
         // Set ball locations based on event
@@ -101,4 +119,20 @@ public class MainActivity extends AppCompatActivity  implements SensorEventListe
      */
     @Override
     public void onAccuracyChanged(Sensor sensor, int i) {}
+
+    private void runCollisionFeedback() {
+
+        long now = new Date().getTime();
+
+        // Limit by time to get cleaner haptics/audio
+        if(this.haptic.hasVibrator() && now - prevHapticTime > 250) {
+
+            this.haptic.vibrate(50);
+
+            prevHapticTime = now;
+
+            this.audio.play();
+        }
+
+    }
 }
